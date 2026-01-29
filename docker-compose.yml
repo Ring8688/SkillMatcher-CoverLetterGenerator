@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: skill-matcher-app
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+      - ./data/uploads:/app/data/uploads
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    env_file:
+      - .env
+    restart: unless-stopped

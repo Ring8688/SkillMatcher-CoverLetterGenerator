@@ -2,7 +2,7 @@
 
 import os
 import json
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import PromptTemplate
@@ -10,12 +10,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import datetime
+
 class Chain:
     def __init__(self):
-         self.llm = ChatGroq(
-            groq_api_key=os.getenv('GROQ_API_KEY'),  # Paste your Gorq API Keys
-            model="llama-3.3-70b-versatile",
-            temperature=0
+         self.llm = ChatGoogleGenerativeAI(
+            model=os.getenv("GOOGLE_MODEL_NAME", "gemini-2.5-pro"),
+            temperature=0,
+            google_api_key=os.getenv("GOOGLE_API_KEY")
          )
 
     def extract_jobs(self,clean_text):
@@ -57,44 +59,101 @@ class Chain:
         response = chain_match.invoke({"job_description":str(job_description),"resume": str(resume_content)})
         return response.content
     
-    def cover_letter(self,job_description,resume_content):
+    def extract_personal_info(self, resume_content):
+        prompt_extract_info = PromptTemplate.from_template(
+            """
+            ### RESUME TEXT
+            {resume}
+            
+            ### INSTRUCTION
+            You are a helpful assistant that extracts personal information and key details from a resume to help the candidate fill out job application forms.
+            Extract the following fields from the resume text. Return a JSON object with these exact keys. If a field is not found, use an empty string "".
+            
+            Keys to extract:
+            - "Full Name"
+            - "Email"
+            - "Phone"
+            - "LinkedIn URL"
+            - "Portfolio/Website"
+            - "Current Company"
+            - "Current Job Title"
+            - "Highest Degree"
+            - "University/College"
+            - "Graduation Year" (YYYY)
+            - "Total Years of Experience" (Numeric string, e.g., "5")
+            - "Top 5 Skills" (Comma separated string)
+            - "Professional Summary" (Short 2-3 sentence summary)
+            
+            ### VALID JSON (NO PREAMBLE):
+            """
+        )
+        
+        chain_extract_info = prompt_extract_info | self.llm
+        try:
+            response = chain_extract_info.invoke({"resume": str(resume_content)})
+            json_parser = JsonOutputParser()
+            personal_info = json_parser.parse(response.content)
+        except OutputParserException:
+             # Fallback or empty dict if parsing fails
+            return {}
+        except Exception as e:
+            return {}
+
+        return personal_info if isinstance(personal_info, dict) else {}
+
+    def cover_letter(self, job_description, resume_content):
         prompt_coverletter = PromptTemplate.from_template(
             """
-            ### JOB DESCRIPTION:
+            ### ROLE
+            You are an expert career coach and professional copywriter known for writing high-converting, non-generic cover letters. 
+            Your goal is to write a cover letter that gets the candidate an interview by demonstrating specific value, not just stating interest.
+
+            ### INPUTS
+            JOB DESCRIPTION:
             {job_description}
 
-            ### RESUME:
+            RESUME CONTENT:
             {resume}
+            
+            CURRENT DATE:
+            {date_str}
 
-            You are a professional cover letter writer.
+            ### INSTRUCTIONS
+            Write the **BODY** of a tailored cover letter. 
+            
+            **DO NOT** write the header (Name, Date, Company Address). 
+            **DO NOT** write the sign-off (Sincerely, Name).
+            **DO NOT** write the "Re:" line.
+            
+            Focus ONLY on the content paragraphs (Salutation -> Closing Call to Action).
 
-            Write a **professional, impactful, and concise cover letter** tailored for the above job. Follow these strict instructions:
+            STRICT RULES:
+            1.  **NO CLICHÉS**: Do NOT start with "I am writing to apply for..." or "I am thrilled to...". Start with a strong "hook".
+            2.  **SHOW, DON'T TELL**: Use the STAR method (Situation, Task, Action, Result) with numbers/metrics.
+            3.  **STRUCTURE**:
+                *   **Salutation**: Dear Hiring Manager, (or specific name if found).
+                *   **Opening**: Attention-grabbing hook connecting achievement to company need.
+                *   **Body Paragraph 1 (Hard Skills)**: Prove mastery of top JD skills with a specific project.
+                *   **Body Paragraph 2 (Soft Skills/Culture)**: Leadership/problem-solving story.
+                *   **Closing**: Confident call to action.
 
-            - Limit to **3 short paragraphs only**:
-            1. Brief greeting with mention of hiring manager and company name, and motivation for applying.
-            2. Summarise **only key skills and experiences relevant to the job** in clear bullet-like sentences if needed.
-            3. Closing with gratitude and clear applicant contact details in a single line at the end.
+            4.  **TONE**: Professional, confident, direct.
+            5.  **LENGTH**: Keep it concise (under 300 words for the body).
 
-            add a line that supports the your skills and company requirements.
+            ### OUTPUT FORMAT
+            Return *only* the text from "Dear Hiring Manager," down to the final sentence of the closing paragraph.
+            NO markdown formatting like **bold** inside the text unless necessary for emphasis.
 
-            - Keep it **strictly within a single document page**, avoiding long sentences or redundant phrases.
-            - Use a formal yet crisp tone to convey motivation, alignment, and impact effectively.
-
-            At the end, mention:
-
-            Name:[Your Full Name]
-            Phone:[Your Phone]
-            Email:[Your Email]
-
-            ### Cover Letter:
-
+            ### OUTPUT FORMAT
+            Return *only* the body of the cover letter (including the header).
             """
         )
 
         chain_coverletter = prompt_coverletter | self.llm
         coverletter = chain_coverletter.invoke({
             "job_description": job_description,
-            "resume": resume_content
+            "resume": resume_content,
+            "date_str": datetime.date.today().strftime("%B %d, %Y")
         })
 
         return coverletter.content

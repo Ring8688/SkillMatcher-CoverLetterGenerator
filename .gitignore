@@ -14,5 +14,9 @@ myenv/
 # Environment files
 .env
 
+docker-compose.prod.yml
+/data
+
 # System files
 .DS_Store
+

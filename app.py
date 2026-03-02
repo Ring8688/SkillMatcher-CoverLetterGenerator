@@ -8,7 +8,7 @@ import pathlib
 from chains import Chain
 from utils import clean_text, text_to_pdf_bytes
 from langchain_community.document_loaders import WebBaseLoader
-from profile_data import get_profile, get_details
+from profile_data import get_profile, get_details, DATA_DIR
 from config_loader import get_app_config, get_personal
 
 # Set USER_AGENT to avoid warning
@@ -22,6 +22,32 @@ def create_streamlit_app(llm):
     st.set_page_config(layout="wide", page_title=app_cfg.get("title", "Skills Matcher"), page_icon="📑")
     st.title(f"📄 {app_cfg.get('title', 'Skill Matcher and Cover Letter Generator')}")
     st.caption(app_cfg.get("caption", "Powered by Your Profile Data"))
+
+    # Sidebar: file upload & document list
+    with st.sidebar:
+        st.header("Resume / Documents")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        uploaded_files = st.file_uploader(
+            "Upload files (PDF, MD)",
+            type=["pdf", "md"],
+            accept_multiple_files=True,
+        )
+        if uploaded_files:
+            for f in uploaded_files:
+                with open(os.path.join(DATA_DIR, f.name), "wb") as out:
+                    out.write(f.getbuffer())
+            st.success(f"Saved {len(uploaded_files)} file(s)")
+
+        # List existing files in data/
+        if os.path.isdir(DATA_DIR):
+            files = sorted(
+                fn for fn in os.listdir(DATA_DIR)
+                if os.path.splitext(fn)[1].lower() in (".pdf", ".md")
+            )
+            if files:
+                st.markdown("**Loaded documents:**")
+                for fn in files:
+                    st.text(f"  {fn}")
 
     # Select Input Method
     input_method = st.radio("Choose Job Description Input Method:", ("Job URL", "Paste Job Text"))

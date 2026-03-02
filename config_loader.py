@@ -25,7 +25,7 @@ def load_config(path="config.yml"):
 
 
 def _validate_config(cfg):
-    required_sections = ["personal", "links", "education", "experience", "cover_letter", "app"]
+    required_sections = ["personal", "links", "education", "experience", "cover_letter", "app", "prompts"]
     for section in required_sections:
         if section not in cfg:
             raise ValueError(f"Missing required config section: '{section}'")
@@ -34,6 +34,11 @@ def _validate_config(cfg):
     for key in personal_keys:
         if key not in cfg["personal"]:
             raise ValueError(f"Missing required personal field: '{key}'")
+
+    required_prompts = ["extract_jobs", "write_match", "extract_personal_info", "cover_letter"]
+    for key in required_prompts:
+        if key not in cfg["prompts"]:
+            raise ValueError(f"Missing required prompt: '{key}'")
 
 
 def get_personal():
@@ -62,3 +67,7 @@ def get_resources():
 
 def get_app_config():
     return load_config()["app"]
+
+
+def get_prompts():
+    return load_config()["prompts"]

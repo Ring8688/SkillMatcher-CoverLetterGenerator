@@ -1,0 +1,17 @@
+.env
+config.yml
+resources/
+data/
+deploy/
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+.DS_Store
+myenv/
+.claude/
+*.md
+docker-compose*.yml
+deploy.sh
+Raw_code.ipynb
+images/

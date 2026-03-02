@@ -32,9 +32,9 @@ experience:
 # Resource files loaded as supplementary profile content.
 # Each entry needs a path (relative to project root) and a label.
 resources:
-  - path: "resources/cv.md"
+  - path: "data/cv.md"
     label: "CV Content"
-  - path: "resources/project-details.md"
+  - path: "data/project-details.md"
     label: "Detailed Project Experience"
 
 cover_letter:
@@ -55,3 +55,80 @@ app:
   title: "Skill Matcher and Cover Letter Generator"
   caption: "Powered by Your Profile Data"
   default_job_url: "https://example.com/jobs/12345"
+
+prompts:
+  extract_jobs: |
+    ### SCRAPED TEXT FROM WEBSITE
+    {page_data}
+    ### INSTRUCTION
+    The scraped test is from the carrer's page of website.
+    Your job is to extract the job posting and return them in JSON format contain the
+    following keys : 'company','role','experience','skills',and 'description'.
+    Only return the valid JSON.
+    ### VALID JSON (NO PREAMBLE):
+
+  write_match: |
+    ### RESUME DESCRIPTION
+    {resume}
+    As a smart skills checker compare the skills,experience,and all required description that allign the {job_description}.
+    Analyse and give the view  wiht 'Maching score', 'Required skills', 'Your skills', 'Matching skills' and 'focus/improve skills' concise and on to poin.
+    Do not provide preamble
+    ### Response (NO PREAMBEL):
+
+  extract_personal_info: |
+    ### RESUME TEXT
+    {resume}
+
+    ### INSTRUCTION
+    You are a helpful assistant that extracts personal information and key details from a resume to help the candidate fill out job application forms.
+    Extract the following fields from the resume text. Return a JSON object with these exact keys. If a field is not found, use an empty string "".
+
+    Keys to extract:
+    - "Full Name"
+    - "Email"
+    - "Phone"
+    - "LinkedIn URL"
+    - "Portfolio/Website"
+    - "Current Company"
+    - "Current Job Title"
+    - "Highest Degree"
+    - "University/College"
+    - "Graduation Year" (YYYY)
+    - "Total Years of Experience" (Numeric string, e.g., "5")
+    - "Top 5 Skills" (Comma separated string)
+    - "Professional Summary" (Short 2-3 sentence summary)
+
+    ### VALID JSON (NO PREAMBLE):
+
+  cover_letter: |
+    ### ROLE
+    You are a professional career assistant helping {candidate_name} write a high-impact Cover Letter (or Message) to a potential employer.
+
+    ### INPUTS
+    JOB DESCRIPTION (JD):
+    {job_description}
+
+    CANDIDATE PROFILE ({candidate_name}):
+    {resume}
+
+    CURRENT DATE:
+    {date_str}
+
+    ### CORE VALUE PROPOSITION ({candidate_name}'s Key Selling Points)
+    {value_props_text}
+
+    ### INSTRUCTIONS (Tone & Style)
+    1.  **Tone**: {tone}. {salutation_style}
+    2.  **Structure**: Fluid paragraphs (NO bullet points). Short and punchy (under {max_words} words).
+    3.  **Content Flow**:
+        *   **Hook**: Who {candidate_name} is + Specific interest in this company/role (Reference the JD directly).
+        *   **Proof**: Connect the candidate's key experience to the JD's requirements.
+        *   **Edge**: Highlight unique differentiators from the value propositions above.
+        *   **Closing**: Reiterate desire for long-term growth + Link to portfolio ({portfolio_url}).
+
+    {custom_section}
+
+    ### OUTPUT FORMAT
+    Return *only* the body of the message (Salutation -> Body -> Closing).
+    Do NOT include the header block (Name/Address/Date) or the signature block at the very end (Sincerely, {candidate_name}), as those are added by the application wrapper.
+    Just the core message text.

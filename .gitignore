@@ -1,7 +1,6 @@
 # Python cache
 __pycache__/
 *.py[cod]
-.pdf
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
@@ -12,7 +11,7 @@ myenv/
 # Environment files
 .env
 
-docker-compose.prod.yml
+# Data directory (personal CV/resume files)
 /data
 
 # System files
@@ -21,5 +20,5 @@ docker-compose.prod.yml
 # User config (contains personal data)
 config.yml
 
-# Resource files (contain personal CV data)
-resources/
+# Deploy directory (cloud-specific configs)
+deploy/

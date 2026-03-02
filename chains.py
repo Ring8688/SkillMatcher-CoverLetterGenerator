@@ -8,7 +8,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
-from config_loader import get_personal, get_cover_letter_config, get_links
+from config_loader import get_personal, get_cover_letter_config, get_links, get_prompts
 
 load_dotenv()
 
@@ -21,20 +21,10 @@ class Chain:
             api_key=os.getenv("API_KEY"),
             base_url=os.getenv("API_BASE_URL"),
         )
+        self.prompts = get_prompts()
 
     def extract_jobs(self, clean_text):
-        prompt_extract = PromptTemplate.from_template(
-            """
-                ### SCRAPED TEXT FROM WEBSITE
-                {page_data}
-                ### INSTRUCTION
-                The scraped test is from the carrer's page of website.
-                Your job is to extract the job posting and return them in JSON format contain the
-                following keys : 'company','role','experience','skills',and 'description'.
-                Only return the valid JSON.
-                ### VALID JSON (NO PREAMBLE):
-                """
-        )
+        prompt_extract = PromptTemplate.from_template(self.prompts["extract_jobs"])
         chain_extract = prompt_extract | self.llm
         try:
             respose = chain_extract.invoke({"page_data": clean_text})
@@ -45,50 +35,13 @@ class Chain:
         return job_description if isinstance(job_description, list) else [job_description]
 
     def write_match(self, job_description, resume_content):
-        prompt_match = PromptTemplate.from_template(
-            """
-            ### RESUME DESCRIPTION
-            {resume}
-            As a smart skills checker compare the skills,experience,and all required description that allign the {job_description}.
-            Analyse and give the view  wiht 'Maching score', 'Required skills', 'Your skills', 'Matching skills' and 'focus/improve skills' concise and on to poin.
-            Do not provide preamble
-            ### Response (NO PREAMBEL):
-            """
-        )
-
+        prompt_match = PromptTemplate.from_template(self.prompts["write_match"])
         chain_match = prompt_match | self.llm
         response = chain_match.invoke({"job_description": str(job_description), "resume": str(resume_content)})
         return response.content
 
     def extract_personal_info(self, resume_content):
-        prompt_extract_info = PromptTemplate.from_template(
-            """
-            ### RESUME TEXT
-            {resume}
-
-            ### INSTRUCTION
-            You are a helpful assistant that extracts personal information and key details from a resume to help the candidate fill out job application forms.
-            Extract the following fields from the resume text. Return a JSON object with these exact keys. If a field is not found, use an empty string "".
-
-            Keys to extract:
-            - "Full Name"
-            - "Email"
-            - "Phone"
-            - "LinkedIn URL"
-            - "Portfolio/Website"
-            - "Current Company"
-            - "Current Job Title"
-            - "Highest Degree"
-            - "University/College"
-            - "Graduation Year" (YYYY)
-            - "Total Years of Experience" (Numeric string, e.g., "5")
-            - "Top 5 Skills" (Comma separated string)
-            - "Professional Summary" (Short 2-3 sentence summary)
-
-            ### VALID JSON (NO PREAMBLE):
-            """
-        )
-
+        prompt_extract_info = PromptTemplate.from_template(self.prompts["extract_personal_info"])
         chain_extract_info = prompt_extract_info | self.llm
         try:
             response = chain_extract_info.invoke({"resume": str(resume_content)})
@@ -126,41 +79,7 @@ class Chain:
         max_words = cl_config.get("max_words", 300)
         salutation_style = cl_config.get("salutation_style", "Dear Hiring Manager")
 
-        prompt_coverletter = PromptTemplate.from_template(
-            """
-            ### ROLE
-            You are a professional career assistant helping {candidate_name} write a high-impact Cover Letter (or Message) to a potential employer.
-
-            ### INPUTS
-            JOB DESCRIPTION (JD):
-            {job_description}
-
-            CANDIDATE PROFILE ({candidate_name}):
-            {resume}
-
-            CURRENT DATE:
-            {date_str}
-
-            ### CORE VALUE PROPOSITION ({candidate_name}'s Key Selling Points)
-{value_props_text}
-
-            ### INSTRUCTIONS (Tone & Style)
-            1.  **Tone**: {tone}. {salutation_style}
-            2.  **Structure**: Fluid paragraphs (NO bullet points). Short and punchy (under {max_words} words).
-            3.  **Content Flow**:
-                *   **Hook**: Who {candidate_name} is + Specific interest in this company/role (Reference the JD directly).
-                *   **Proof**: Connect the candidate's key experience to the JD's requirements.
-                *   **Edge**: Highlight unique differentiators from the value propositions above.
-                *   **Closing**: Reiterate desire for long-term growth + Link to portfolio ({portfolio_url}).
-
-            {custom_section}
-
-            ### OUTPUT FORMAT
-            Return *only* the body of the message (Salutation -> Body -> Closing).
-            Do NOT include the header block (Name/Address/Date) or the signature block at the very end (Sincerely, {candidate_name}), as those are added by the application wrapper.
-            Just the core message text.
-            """
-        )
+        prompt_coverletter = PromptTemplate.from_template(self.prompts["cover_letter"])
 
         chain_coverletter = prompt_coverletter | self.llm
         coverletter = chain_coverletter.invoke({

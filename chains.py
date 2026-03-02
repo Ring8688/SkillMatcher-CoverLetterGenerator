@@ -3,7 +3,6 @@
 import os
 import json
 import datetime
-from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import PromptTemplate
@@ -13,14 +12,36 @@ from config_loader import get_personal, get_cover_letter_config, get_links, get_
 load_dotenv()
 
 
+def _create_llm():
+    """Create LLM instance based on API_TYPE env var (anthropic or openai)."""
+    api_type = os.getenv("API_TYPE", "anthropic").lower()
+    model = os.getenv("API_MODEL", "claude-sonnet-4-6")
+    temperature = float(os.getenv("API_TEMPERATURE", "0"))
+    api_key = os.getenv("API_KEY")
+    base_url = os.getenv("API_BASE_URL")
+
+    if api_type == "anthropic":
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(
+            model=model,
+            temperature=temperature,
+            api_key=api_key,
+            base_url=base_url,
+            max_tokens=4096,
+        )
+    else:
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=model,
+            temperature=temperature,
+            api_key=api_key,
+            base_url=base_url,
+        )
+
+
 class Chain:
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model=os.getenv("API_MODEL", "gpt-4o"),
-            temperature=float(os.getenv("API_TEMPERATURE", "0")),
-            api_key=os.getenv("API_KEY"),
-            base_url=os.getenv("API_BASE_URL"),
-        )
+        self.llm = _create_llm()
         self.prompts = get_prompts()
 
     def extract_jobs(self, clean_text):

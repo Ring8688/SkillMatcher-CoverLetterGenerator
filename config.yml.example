@@ -1,0 +1,57 @@
+# SkillMatcher & Cover Letter Generator — User Configuration
+# Copy this file to config.yml and fill in your personal details.
+# API settings go in .env (see .env.example).
+
+personal:
+  first_name: "Jane"
+  last_name: "Doe"
+  full_name: "Jane Doe"
+  email: "jane.doe@example.com"
+  phone: "+1 555 123 4567"
+  location: "San Francisco, CA"
+
+links:
+  linkedin: "https://www.linkedin.com/in/janedoe/"
+  portfolio: "https://janedoe.dev/"
+  github: "https://github.com/janedoe"
+
+education:
+  university: "Stanford University"
+  degree: "Master of Computer Science"
+  graduation: "Jun 2025"
+  gpa: "3.9 / 4.0"
+
+experience:
+  current_role: "Software Engineer Intern"
+  current_company: "Acme Corp"
+  key_tech_stack: "React, Python, PostgreSQL, AWS, Docker"
+  summary: >-
+    Full-stack developer with experience building web applications
+    and deploying cloud-native services.
+
+# Resource files loaded as supplementary profile content.
+# Each entry needs a path (relative to project root) and a label.
+resources:
+  - path: "resources/cv.md"
+    label: "CV Content"
+  - path: "resources/project-details.md"
+    label: "Detailed Project Experience"
+
+cover_letter:
+  # Key selling points injected into the cover letter prompt.
+  value_propositions:
+    - "Computer Science graduate with strong foundations in algorithms and system design."
+    - "Built and shipped a SaaS product used by 200+ users as a solo developer."
+    - "Proficient in AI-assisted development workflows for rapid prototyping."
+    - "Looking for a fast-paced team where I can own features end-to-end."
+  tone: "Natural, Direct, Confident, Sincere"
+  max_words: 300
+  salutation_style: >-
+    Write as if speaking directly to a Founder or Team Lead
+    (e.g., start with "Hi [Company Name] Team" if name unknown,
+    or "Dear Hiring Manager" if corporate).
+
+app:
+  title: "Skill Matcher and Cover Letter Generator"
+  caption: "Powered by Your Profile Data"
+  default_job_url: "https://example.com/jobs/12345"

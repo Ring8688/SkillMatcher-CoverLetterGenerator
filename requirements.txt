@@ -1,9 +1,10 @@
 streamlit
 streamlit-pdf-viewer
 python-dotenv
-langchain-google-genai
-langchain_community 
+langchain-openai
+langchain_community
 beautifulsoup4
 pypdf
 fpdf
+pyyaml
 # chromadb==1.0.13

@@ -9,8 +9,7 @@ services:
     volumes:
       - .:/app
       - ./data/uploads:/app/data/uploads
-    environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - ./config.yml:/app/config.yml:ro
     env_file:
       - .env
     restart: unless-stopped

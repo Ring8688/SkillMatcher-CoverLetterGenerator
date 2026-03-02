@@ -2,73 +2,74 @@
 
 import os
 import json
-from langchain_google_genai import ChatGoogleGenerativeAI
+import datetime
+from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.exceptions import OutputParserException
 from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
+from config_loader import get_personal, get_cover_letter_config, get_links
 
 load_dotenv()
 
-import datetime
 
 class Chain:
     def __init__(self):
-         self.llm = ChatGoogleGenerativeAI(
-            model=os.getenv("GOOGLE_MODEL_NAME", "gemini-2.5-pro"),
-            temperature=0,
-            google_api_key=os.getenv("GOOGLE_API_KEY")
-         )
+        self.llm = ChatOpenAI(
+            model=os.getenv("API_MODEL", "gpt-4o"),
+            temperature=float(os.getenv("API_TEMPERATURE", "0")),
+            api_key=os.getenv("API_KEY"),
+            base_url=os.getenv("API_BASE_URL"),
+        )
 
-    def extract_jobs(self,clean_text):
+    def extract_jobs(self, clean_text):
         prompt_extract = PromptTemplate.from_template(
-                """
+            """
                 ### SCRAPED TEXT FROM WEBSITE
                 {page_data}
                 ### INSTRUCTION
                 The scraped test is from the carrer's page of website.
-                Your job is to extract the job posting and return them in JSON format contain the 
+                Your job is to extract the job posting and return them in JSON format contain the
                 following keys : 'company','role','experience','skills',and 'description'.
                 Only return the valid JSON.
                 ### VALID JSON (NO PREAMBLE):
                 """
-            )
+        )
         chain_extract = prompt_extract | self.llm
         try:
-            respose = chain_extract.invoke({"page_data":clean_text})
+            respose = chain_extract.invoke({"page_data": clean_text})
             json_parser = JsonOutputParser()
             job_description = json_parser.parse(respose.content)
         except OutputParserException:
             raise OutputParserException("Context too big. Unable to parser job(llm token limit:10000)")
-        return job_description if isinstance(job_description,list) else [job_description]
-    
-    def write_match(self,job_description,resume_content):
+        return job_description if isinstance(job_description, list) else [job_description]
+
+    def write_match(self, job_description, resume_content):
         prompt_match = PromptTemplate.from_template(
-    
             """
             ### RESUME DESCRIPTION
             {resume}
             As a smart skills checker compare the skills,experience,and all required description that allign the {job_description}.
             Analyse and give the view  wiht 'Maching score', 'Required skills', 'Your skills', 'Matching skills' and 'focus/improve skills' concise and on to poin.
-            Do not provide preamble 
+            Do not provide preamble
             ### Response (NO PREAMBEL):
             """
         )
 
         chain_match = prompt_match | self.llm
-        response = chain_match.invoke({"job_description":str(job_description),"resume": str(resume_content)})
+        response = chain_match.invoke({"job_description": str(job_description), "resume": str(resume_content)})
         return response.content
-    
+
     def extract_personal_info(self, resume_content):
         prompt_extract_info = PromptTemplate.from_template(
             """
             ### RESUME TEXT
             {resume}
-            
+
             ### INSTRUCTION
             You are a helpful assistant that extracts personal information and key details from a resume to help the candidate fill out job application forms.
             Extract the following fields from the resume text. Return a JSON object with these exact keys. If a field is not found, use an empty string "".
-            
+
             Keys to extract:
             - "Full Name"
             - "Email"
@@ -83,77 +84,96 @@ class Chain:
             - "Total Years of Experience" (Numeric string, e.g., "5")
             - "Top 5 Skills" (Comma separated string)
             - "Professional Summary" (Short 2-3 sentence summary)
-            
+
             ### VALID JSON (NO PREAMBLE):
             """
         )
-        
+
         chain_extract_info = prompt_extract_info | self.llm
         try:
             response = chain_extract_info.invoke({"resume": str(resume_content)})
             json_parser = JsonOutputParser()
             personal_info = json_parser.parse(response.content)
         except OutputParserException:
-             # Fallback or empty dict if parsing fails
             return {}
-        except Exception as e:
+        except Exception:
             return {}
 
         return personal_info if isinstance(personal_info, dict) else {}
 
-    def cover_letter(self, job_description, resume_content):
+    def cover_letter(self, job_description, resume_content, custom_prompt=""):
+        custom_section = ""
+        if custom_prompt.strip():
+            custom_section = f"""
+            ### ADDITIONAL INSTRUCTIONS FROM CANDIDATE
+            {custom_prompt}
+            Please incorporate the above instructions/context into the cover letter naturally.
+            """
+
+        personal = get_personal()
+        cl_config = get_cover_letter_config()
+        links = get_links()
+
+        candidate_name = personal.get("full_name", "Candidate")
+        portfolio_url = links.get("portfolio", "")
+
+        value_props = cl_config.get("value_propositions", [])
+        value_props_text = "\n".join(
+            f"            {i}. {vp}" for i, vp in enumerate(value_props, 1)
+        )
+
+        tone = cl_config.get("tone", "Professional and sincere")
+        max_words = cl_config.get("max_words", 300)
+        salutation_style = cl_config.get("salutation_style", "Dear Hiring Manager")
+
         prompt_coverletter = PromptTemplate.from_template(
             """
             ### ROLE
-            You are an expert career coach and professional copywriter known for writing high-converting, non-generic cover letters. 
-            Your goal is to write a cover letter that gets the candidate an interview by demonstrating specific value, not just stating interest.
+            You are a professional career assistant helping {candidate_name} write a high-impact Cover Letter (or Message) to a potential employer.
 
             ### INPUTS
-            JOB DESCRIPTION:
+            JOB DESCRIPTION (JD):
             {job_description}
 
-            RESUME CONTENT:
+            CANDIDATE PROFILE ({candidate_name}):
             {resume}
-            
+
             CURRENT DATE:
             {date_str}
 
-            ### INSTRUCTIONS
-            Write the **BODY** of a tailored cover letter. 
-            
-            **DO NOT** write the header (Name, Date, Company Address). 
-            **DO NOT** write the sign-off (Sincerely, Name).
-            **DO NOT** write the "Re:" line.
-            
-            Focus ONLY on the content paragraphs (Salutation -> Closing Call to Action).
+            ### CORE VALUE PROPOSITION ({candidate_name}'s Key Selling Points)
+{value_props_text}
 
-            STRICT RULES:
-            1.  **NO CLICHÉS**: Do NOT start with "I am writing to apply for..." or "I am thrilled to...". Start with a strong "hook".
-            2.  **SHOW, DON'T TELL**: Use the STAR method (Situation, Task, Action, Result) with numbers/metrics.
-            3.  **STRUCTURE**:
-                *   **Salutation**: Dear Hiring Manager, (or specific name if found).
-                *   **Opening**: Attention-grabbing hook connecting achievement to company need.
-                *   **Body Paragraph 1 (Hard Skills)**: Prove mastery of top JD skills with a specific project.
-                *   **Body Paragraph 2 (Soft Skills/Culture)**: Leadership/problem-solving story.
-                *   **Closing**: Confident call to action.
+            ### INSTRUCTIONS (Tone & Style)
+            1.  **Tone**: {tone}. {salutation_style}
+            2.  **Structure**: Fluid paragraphs (NO bullet points). Short and punchy (under {max_words} words).
+            3.  **Content Flow**:
+                *   **Hook**: Who {candidate_name} is + Specific interest in this company/role (Reference the JD directly).
+                *   **Proof**: Connect the candidate's key experience to the JD's requirements.
+                *   **Edge**: Highlight unique differentiators from the value propositions above.
+                *   **Closing**: Reiterate desire for long-term growth + Link to portfolio ({portfolio_url}).
 
-            4.  **TONE**: Professional, confident, direct.
-            5.  **LENGTH**: Keep it concise (under 300 words for the body).
+            {custom_section}
 
             ### OUTPUT FORMAT
-            Return *only* the text from "Dear Hiring Manager," down to the final sentence of the closing paragraph.
-            NO markdown formatting like **bold** inside the text unless necessary for emphasis.
-
-            ### OUTPUT FORMAT
-            Return *only* the body of the cover letter (including the header).
+            Return *only* the body of the message (Salutation -> Body -> Closing).
+            Do NOT include the header block (Name/Address/Date) or the signature block at the very end (Sincerely, {candidate_name}), as those are added by the application wrapper.
+            Just the core message text.
             """
         )
 
         chain_coverletter = prompt_coverletter | self.llm
         coverletter = chain_coverletter.invoke({
+            "candidate_name": candidate_name,
             "job_description": job_description,
             "resume": resume_content,
-            "date_str": datetime.date.today().strftime("%B %d, %Y")
+            "date_str": datetime.date.today().strftime("%B %d, %Y"),
+            "value_props_text": value_props_text,
+            "tone": tone,
+            "max_words": max_words,
+            "salutation_style": salutation_style,
+            "portfolio_url": portfolio_url,
+            "custom_section": custom_section,
         })
 
         return coverletter.content
